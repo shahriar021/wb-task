@@ -10,15 +10,21 @@ export function ColumnView({
   column,
   onAddTask,
   onDeleteTask,
+  onEditTask,
   onDeleteColumn,
+  onRenameColumn,
 }: {
   column: Column;
   onAddTask: (columnId: string, title: string) => void;
   onDeleteTask: (taskId: string) => void;
+  onEditTask: (taskId: string, title: string, description: string) => void;
   onDeleteColumn: (columnId: string) => void;
+  onRenameColumn: (columnId: string, name: string) => void;
 }) {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(column.name);
   const { setNodeRef } = useDroppable({ id: column.id, data: { type: "column" } });
 
   function submitTask(e: React.FormEvent) {
@@ -29,13 +35,39 @@ export function ColumnView({
     setShowForm(false);
   }
 
+  function saveName() {
+    setEditingName(false);
+    if (nameDraft.trim() && nameDraft.trim() !== column.name) {
+      onRenameColumn(column.id, nameDraft.trim());
+    } else {
+      setNameDraft(column.name);
+    }
+  }
+
   return (
     <div className="w-72 shrink-0 rounded-lg bg-paper border border-line/70 flex flex-col max-h-full">
       <div className="flex items-center justify-between px-3 py-3">
-        <h3 className="font-medium text-ink text-sm">{column.name}</h3>
+        {editingName ? (
+          <input
+            autoFocus
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={saveName}
+            onKeyDown={(e) => e.key === "Enter" && saveName()}
+            className="font-medium text-ink text-sm bg-white border border-signal rounded px-1.5 py-0.5 outline-none w-full mr-2"
+          />
+        ) : (
+          <h3
+            onClick={() => setEditingName(true)}
+            className="font-medium text-ink text-sm cursor-text hover:bg-white/60 rounded px-1.5 py-0.5 -mx-1.5"
+            title="Click to rename"
+          >
+            {column.name}
+          </h3>
+        )}
         <button
           onClick={() => onDeleteColumn(column.id)}
-          className="text-ink/30 hover:text-red-600 text-xs"
+          className="text-ink/30 hover:text-red-600 text-xs shrink-0"
           aria-label="Delete column"
         >
           ✕
@@ -48,7 +80,7 @@ export function ColumnView({
           strategy={verticalListSortingStrategy}
         >
           {column.tasks.map((task: Task) => (
-            <TaskCard key={task.id} task={task} onDelete={onDeleteTask} />
+            <TaskCard key={task.id} task={task} onDelete={onDeleteTask} onEdit={onEditTask} />
           ))}
         </SortableContext>
       </div>

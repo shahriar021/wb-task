@@ -31,6 +31,8 @@ export default function BoardDetailPage() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [shareEmail, setShareEmail] = useState("");
   const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -48,6 +50,7 @@ export default function BoardDetailPage() {
     try {
       const data = await api.get<Board>(`/boards/${boardId}`);
       setBoard(data);
+      setTitleDraft(data.name);
       setColumns(data.columns ?? []);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't load this board.");
@@ -99,6 +102,42 @@ export default function BoardDetailPage() {
       await api.delete(`/tasks/${taskId}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't delete the task.");
+      loadBoard();
+    }
+  }
+
+  async function handleRenameColumn(columnId: string, name: string) {
+    setColumns((prev) => prev.map((c) => (c.id === columnId ? { ...c, name } : c)));
+    try {
+      await api.patch(`/columns/${columnId}`, { name });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't rename the column.");
+      loadBoard();
+    }
+  }
+
+  async function handleEditTask(taskId: string, title: string, description: string) {
+    setColumns((prev) =>
+      prev.map((c) => ({
+        ...c,
+        tasks: c.tasks.map((t) => (t.id === taskId ? { ...t, title, description } : t)),
+      }))
+    );
+    try {
+      await api.patch(`/tasks/${taskId}`, { title, description });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't save the task.");
+      loadBoard();
+    }
+  }
+
+  async function handleRenameBoard(name: string) {
+    if (!board) return;
+    setBoard({ ...board, name });
+    try {
+      await api.patch(`/boards/${boardId}`, { name });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't rename the board.");
       loadBoard();
     }
   }
@@ -197,7 +236,31 @@ export default function BoardDetailPage() {
           <Link href="/boards" className="text-ink/40 hover:text-ink text-sm">
             ← Boards
           </Link>
-          <h1 className="text-lg font-semibold text-ink">{board?.name}</h1>
+          {editingTitle ? (
+            <input
+              autoFocus
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={() => {
+                setEditingTitle(false);
+                if (titleDraft.trim() && titleDraft.trim() !== board?.name) {
+                  handleRenameBoard(titleDraft.trim());
+                } else {
+                  setTitleDraft(board?.name ?? "");
+                }
+              }}
+              onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+              className="text-lg font-semibold text-ink bg-white border border-signal rounded px-2 py-0.5 outline-none"
+            />
+          ) : (
+            <h1
+              onClick={() => setEditingTitle(true)}
+              className="text-lg font-semibold text-ink cursor-text hover:bg-white/60 rounded px-2 py-0.5 -mx-2"
+              title="Click to rename"
+            >
+              {board?.name}
+            </h1>
+          )}
         </div>
 
         <form onSubmit={handleShare} className="flex items-center gap-2">
@@ -231,7 +294,9 @@ export default function BoardDetailPage() {
                 column={column}
                 onAddTask={handleAddTask}
                 onDeleteTask={handleDeleteTask}
+                onEditTask={handleEditTask}
                 onDeleteColumn={handleDeleteColumn}
+                onRenameColumn={handleRenameColumn}
               />
             ))}
 

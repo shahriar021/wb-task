@@ -112,6 +112,7 @@ export default function BoardsPage() {
                 <p className="text-sm text-ink/50 mt-1">
                   {board.members?.length ?? 1} member{(board.members?.length ?? 1) === 1 ? "" : "s"}
                 </p>
+                <p className="text-xs text-ink/30 mt-2">Open the board to rename, add columns, or share it</p>
               </Link>
             </li>
           ))}
